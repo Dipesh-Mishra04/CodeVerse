@@ -40,10 +40,21 @@ export async function middleware(req: NextRequest) {
   });
 
   // Refresh session to ensure cookies are up to date
-  const {
+  let {
     data: { user },
     error,
   } = await supabase.auth.getUser();
+
+  // If no user but we have cookies, try refreshing the session
+  if (!user && !error) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      // Session exists, refresh to get user
+      await supabase.auth.refreshSession();
+      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+      user = refreshedUser || null;
+    }
+  }
 
   const { pathname } = req.nextUrl;
 
@@ -63,9 +74,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirect authenticated users from auth routes to dashboard
+  // Redirect authenticated users from auth routes
   if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    // Check for redirect parameter in URL
+    const redirectParam = req.nextUrl.searchParams.get("redirect");
+    const redirectPath = redirectParam && redirectParam.startsWith("/") 
+      ? redirectParam 
+      : "/dashboard";
+    return NextResponse.redirect(new URL(redirectPath, req.url));
   }
 
   return res;

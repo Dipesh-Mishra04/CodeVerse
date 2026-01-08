@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { signIn, signInWithGoogle } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Hero3D from '@/components/Hero3D';
 
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/dashboard';
 
   const handleLogin = async () => {
     setLoading(true);
@@ -20,7 +22,12 @@ export default function LoginPage() {
       setMessage(error.message);
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      // Wait a bit for session to be established, then force a full page reload
+      // This ensures cookies are properly sent to the server
+      // Using window.location.href instead of router.push ensures full page reload with cookies
+      setTimeout(() => {
+        window.location.href = redirect;
+      }, 200);
     }
   };
 
