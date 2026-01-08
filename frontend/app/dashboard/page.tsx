@@ -7,27 +7,46 @@ import { User } from '@supabase/supabase-js';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     const fetchUser = async () => {
-      const u = await getUser();
-      setUser(u);
+      try {
+        const u = await getUser();
+        if (u) {
+          setUser(u);
+        } else {
+          // No user found, redirect to login
+          router.push('/login?redirect=/dashboard');
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        router.push('/login?redirect=/dashboard');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchUser();
-  }, []);
+  }, [router]);
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
 
-  if (!user) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-neutral-400">
-        Loading dashboard...
+        <div className="text-center">
+          <div className="mb-4">Loading dashboard...</div>
+        </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null; // Will redirect via useEffect
   }
 
   return (

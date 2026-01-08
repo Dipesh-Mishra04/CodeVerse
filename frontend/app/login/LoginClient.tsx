@@ -37,16 +37,33 @@ export default function LoginClient() {
   const handleLogin = async () => {
     setLoading(true);
     setMessage('');
-    const { data, error } = await signIn(email, password);
+    
+    try {
+      const { data, error } = await signIn(email, password);
 
-    if (error) {
-      setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+        setLoading(false);
+        return;
+      }
+
+      // Check if login was successful
+      if (data?.user || data?.session) {
+        setMessage('Login successful! Redirecting...');
+        
+        // Force a full page reload with a slight delay to ensure cookies are set
+        // This ensures the middleware can read the session cookies
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Use window.location.replace to avoid adding to history
+        window.location.replace(redirect);
+      } else {
+        setMessage('Login failed. Please try again.');
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setMessage(err.message || 'An error occurred. Please try again.');
       setLoading(false);
-    } else {
-      // Wait a moment to ensure session is established
-      setTimeout(() => {
-        window.location.href = redirect; // full reload ensures cookies/session
-      }, 200);
     }
   };
 

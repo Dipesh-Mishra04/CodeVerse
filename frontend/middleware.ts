@@ -39,20 +39,27 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  // Refresh session to ensure cookies are up to date
+  // Get user session
   let {
     data: { user },
     error,
   } = await supabase.auth.getUser();
 
-  // If no user but we have cookies, try refreshing the session
-  if (!user && !error) {
+  // If no user, try getting session directly
+  if (!user) {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      // Session exists, refresh to get user
-      await supabase.auth.refreshSession();
-      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
-      user = refreshedUser || null;
+    if (session?.user) {
+      user = session.user;
+    } else if (session && !error) {
+      // Session exists but user is not available, try refreshing
+      try {
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData?.session?.user) {
+          user = refreshData.session.user;
+        }
+      } catch (refreshError) {
+        // Refresh failed, continue without user
+      }
     }
   }
 
