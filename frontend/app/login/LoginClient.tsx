@@ -1,12 +1,14 @@
+// /app/login/LoginClient.tsx
 'use client';
+
 import { useState, useEffect } from 'react';
-import dynamicImport from 'next/dynamic';
+import dynamic from 'next/dynamic';
 import { signIn, signInWithGoogle } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// Dynamically import Hero3D to prevent SSR/prerendering issues
-const Hero3D = dynamicImport(() => import('@/components/Hero3D'), {
+// Dynamically import Hero3D to avoid SSR issues
+const Hero3D = dynamic(() => import('@/components/Hero3D'), {
   ssr: false,
   loading: () => null,
 });
@@ -17,9 +19,10 @@ export default function LoginClient() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [redirect, setRedirect] = useState('/dashboard');
+
   const router = useRouter();
 
-  // Get redirect parameter from URL on client side
+  // Read redirect param from URL (if any)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -30,26 +33,27 @@ export default function LoginClient() {
     }
   }, []);
 
+  // Handle Email/Password login
   const handleLogin = async () => {
     setLoading(true);
     setMessage('');
     const { data, error } = await signIn(email, password);
+
     if (error) {
       setMessage(error.message);
       setLoading(false);
     } else {
-      // Wait a bit for session to be established, then force a full page reload
-      // This ensures cookies are properly sent to the server
-      // Using window.location.href instead of router.push ensures full page reload with cookies
+      // Wait a moment to ensure session is established
       setTimeout(() => {
-        window.location.href = redirect;
+        window.location.href = redirect; // full reload ensures cookies/session
       }, 200);
     }
   };
 
+  // Handle Google OAuth login
   const handleGoogle = async () => {
     setLoading(true);
-    await signInWithGoogle(); // redirects automatically
+    await signInWithGoogle(); // Supabase handles redirect
   };
 
   return (
@@ -68,34 +72,38 @@ export default function LoginClient() {
       {/* Login Form */}
       <div className="relative z-10 w-full max-w-md px-6 sm:px-8 py-10">
         <div className="backdrop-blur-xl bg-neutral-900/40 border border-emerald-500/20 rounded-2xl shadow-2xl p-8 sm:p-10">
-          {/* Logo/Title */}
+          {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
               Welcome Back
             </h1>
-            <p className="text-neutral-400 text-sm sm:text-base">Sign in to continue your coding journey</p>
+            <p className="text-neutral-400 text-sm sm:text-base">
+              Sign in to continue your coding journey
+            </p>
           </div>
 
-          {/* Error/Success Message */}
+          {/* Error/Success message */}
           {message && (
-            <div className={`mb-6 p-3 rounded-lg text-sm ${
-              message.includes('successful') 
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                : 'bg-red-500/20 text-red-400 border border-red-500/30'
-            }`}>
+            <div
+              className={`mb-6 p-3 rounded-lg text-sm ${
+                message.includes('successful')
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}
+            >
               {message}
             </div>
           )}
 
-          {/* Form */}
-          <form 
+          {/* Login Form */}
+          <form
             onSubmit={(e) => {
               e.preventDefault();
               handleLogin();
             }}
             className="space-y-6"
           >
-            {/* Email Input */}
+            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-neutral-300 mb-2">
                 Email
@@ -111,7 +119,7 @@ export default function LoginClient() {
               />
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-neutral-300 mb-2">
                 Password
@@ -126,14 +134,13 @@ export default function LoginClient() {
                 className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700/50 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all backdrop-blur-sm"
               />
             </div>
-            <Link
-              href="/forgot-password"
-              className="text-sm text-emerald-400 hover:underline"
-            >
+
+            {/* Forgot password */}
+            <Link href="/forgot-password" className="text-sm text-emerald-400 hover:underline">
               Forgot password?
             </Link>
 
-            {/* Login Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -153,7 +160,7 @@ export default function LoginClient() {
             </div>
           </div>
 
-          {/* Google Button */}
+          {/* Google Login */}
           <button
             onClick={handleGoogle}
             disabled={loading}
@@ -168,7 +175,7 @@ export default function LoginClient() {
             {loading ? 'Connecting...' : 'Continue with Google'}
           </button>
 
-          {/* Sign Up Link */}
+          {/* Sign Up */}
           <div className="mt-6 text-center text-sm text-neutral-400">
             Don't have an account?{' '}
             <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
@@ -180,4 +187,3 @@ export default function LoginClient() {
     </div>
   );
 }
-
