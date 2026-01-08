@@ -1,11 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { signIn, signInWithGoogle } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Hero3D from '@/components/Hero3D';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -162,5 +162,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-neutral-950">
+        <div className="absolute inset-0 z-0 h-full w-full">
+          <Hero3D />
+        </div>
+        <div className="relative z-10 text-white">Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
