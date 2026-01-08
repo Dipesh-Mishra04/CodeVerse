@@ -1,18 +1,28 @@
 'use client';
-import { useState, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn, signInWithGoogle } from '@/lib/auth';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Hero3D from '@/components/Hero3D';
 
-function LoginForm() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [redirect, setRedirect] = useState('/dashboard');
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/dashboard';
+
+  // Get redirect parameter from URL on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get('redirect');
+      if (redirectParam && redirectParam.startsWith('/')) {
+        setRedirect(redirectParam);
+      }
+    }
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -165,20 +175,3 @@ function LoginForm() {
   );
 }
 
-// Mark this page as dynamic to prevent static generation
-export const dynamic = 'force-dynamic';
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-neutral-950">
-        <div className="absolute inset-0 z-0 h-full w-full">
-          <Hero3D />
-        </div>
-        <div className="relative z-10 text-white">Loading...</div>
-      </div>
-    }>
-      <LoginForm />
-    </Suspense>
-  );
-}
