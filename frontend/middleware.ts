@@ -3,42 +3,69 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
+  // Check if environment variables are set
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase environment variables");
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) {
-          return req.cookies.get(name)?.value;
-        },
-        set(name, value, options) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name, options) {
-          res.cookies.set({ name, value: "", ...options });
-        },
+  // Create Supabase client with proper cookie handling
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      get(name: string) {
+        return req.cookies.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options: any) {
+        // Set cookie in the response
+        res.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+      },
+      remove(name: string, options: any) {
+        // Remove cookie by setting empty string with maxAge 0
+        res.cookies.set({
+          name,
+          value: "",
+          ...options,
+        });
+      },
+    },
+  });
 
+  // Refresh session to ensure cookies are up to date
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
 
-  const protectedRoutes = [
-    "/dashboard",
-    "/problems",
-    "/submissions",
-  ];
+  const { pathname } = req.nextUrl;
 
-  const isProtected = protectedRoutes.some((route) =>
-    req.nextUrl.pathname.startsWith(route)
+  // Define route groups
+  const protectedRoutes = ["/dashboard", "/problems", "/submissions"];
+  const authRoutes = ["/login", "/signup"];
+
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
   );
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-  if (!user && isProtected) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  // Redirect unauthenticated users from protected routes to login
+  if (!user && isProtectedRoute) {
+    const redirectUrl = new URL("/login", req.url);
+    redirectUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Redirect authenticated users from auth routes to dashboard
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return res;
@@ -46,8 +73,13 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/problems/:path*",
-    "/submissions/:path*",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
