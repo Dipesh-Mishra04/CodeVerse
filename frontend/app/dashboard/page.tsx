@@ -1,21 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUser, signOut } from '@/lib/auth';
+import { getUser, getUserName, signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [username, setUsername] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserData = async () => {
       try {
         const u = await getUser();
         if (u) {
           setUser(u);
+          // Get username from user metadata
+          const userName = await getUserName();
+          setUsername(userName || u.email?.split('@')[0] || 'User');
         } else {
           // No user found, redirect to login
           router.push('/login?redirect=/dashboard');
@@ -27,7 +31,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-    fetchUser();
+    fetchUserData();
   }, [router]);
 
   const handleSignOut = async () => {
@@ -52,7 +56,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4">
       <h1 className="text-2xl font-bold">
-        Welcome, {user.email}
+        Welcome, {username}
       </h1>
 
       <button

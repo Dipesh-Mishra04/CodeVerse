@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Hero3D from '@/components/Hero3D';
 
 export default function SignUpPage() {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -12,6 +13,19 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
+    // Validation
+    if (!username || username.trim().length === 0) {
+      setMessage('Username is required');
+      return;
+    }
+    if (username.length < 3) {
+      setMessage('Username must be at least 3 characters');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setMessage('Username can only contain letters, numbers, and underscores');
+      return;
+    }
     if (password !== confirmPassword) {
       setMessage('Passwords do not match');
       return;
@@ -23,7 +37,7 @@ export default function SignUpPage() {
 
     setLoading(true);
     setMessage('');
-    const { data, error } = await signUp(email, password);
+    const { data, error } = await signUp(email, password, username.trim());
     if (error) {
       setMessage(error.message);
       setLoading(false);
@@ -81,6 +95,25 @@ export default function SignUpPage() {
             }}
             className="space-y-6"
           >
+            {/* Username Input */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-neutral-300 mb-2">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                required
+                minLength={3}
+                pattern="[a-zA-Z0-9_]+"
+                className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700/50 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all backdrop-blur-sm"
+              />
+              <p className="mt-1 text-xs text-neutral-500">3+ characters, letters, numbers, and underscores only</p>
+            </div>
+
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-neutral-300 mb-2">
