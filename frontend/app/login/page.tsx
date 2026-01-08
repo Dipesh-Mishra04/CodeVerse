@@ -1,9 +1,18 @@
 'use client';
 import { useState, useEffect } from 'react';
+import dynamicImport from 'next/dynamic';
 import { signIn, signInWithGoogle } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Hero3D from '@/components/Hero3D';
+
+// Dynamically import Hero3D to prevent SSR/prerendering issues
+const Hero3D = dynamicImport(() => import('@/components/Hero3D'), {
+  ssr: false,
+  loading: () => null,
+});
+
+// Force dynamic rendering to prevent static generation during build
+export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
