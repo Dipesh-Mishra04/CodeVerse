@@ -165,6 +165,9 @@ function LoginForm() {
   );
 }
 
+// Mark this page as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export default function LoginPage() {
   return (
     <Suspense fallback={
