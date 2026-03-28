@@ -6,7 +6,7 @@ export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
   // Skip middleware for static files and callback
-  if (pathname.match(/\\.(js|css|png|jpg|ico|woff|svg|json|webp)$/)) {
+  if (pathname.match(/\.(js|css|png|jpg|ico|woff|svg|json)$/)) {
     return NextResponse.next();
   }
 
@@ -26,21 +26,15 @@ export async function middleware(req: NextRequest) {
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return req.cookies.get(name)?.value;
+      getAll() {
+        return req.cookies.getAll().map(({ name, value }) => ({ name, value }));
       },
-      set(name: string, value: string, options: any) {
-        res.cookies.set({
-          name,
-          value,
-          ...options,
-        });
-      },
-      remove(name: string, options: any) {
-        res.cookies.set({
-          name,
-          value: "",
-          ...options,
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          // Setting cookies on both the request and response 
+          // ensures they are available immediately
+          req.cookies.set(name, value);
+          res.cookies.set({ name, value, ...options });
         });
       },
     },
