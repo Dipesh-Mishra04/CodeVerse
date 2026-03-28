@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+// Avoid `next/server` here: its barrel loads ua-parser-js, which references `__dirname` and breaks Edge (Vercel).
+import { NextResponse } from "next/dist/server/web/spec-extension/response";
+import type { NextRequest } from "next/dist/server/web/spec-extension/request";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  const { pathname, searchParams } = req.nextUrl;
+  const { pathname } = req.nextUrl;
 
   // Skip middleware for static files and callback
-  if (pathname.match(/\\.(js|css|png|jpg|ico|woff|svg|json|webp)$/)) {
+  if (pathname.match(/\.(js|css|png|jpg|ico|woff|svg|json|webp)$/i)) {
     return NextResponse.next();
   }
 
@@ -29,14 +30,14 @@ export async function middleware(req: NextRequest) {
       get(name: string) {
         return req.cookies.get(name)?.value;
       },
-      set(name: string, value: string, options: any) {
+      set(name: string, value: string, options: CookieOptions) {
         res.cookies.set({
           name,
           value,
           ...options,
         });
       },
-      remove(name: string, options: any) {
+      remove(name: string, options: CookieOptions) {
         res.cookies.set({
           name,
           value: "",
