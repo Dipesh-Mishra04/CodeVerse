@@ -27,6 +27,12 @@ export default function Navbar() {
 
         {/* DESKTOP MENU */}
         <div className="hidden md:flex items-center gap-6 text-sm text-neutral-300">
+          <Link href="/problems" className="hover:text-white">
+            Problems
+          </Link>
+          <Link href="/leaderboard" className="hover:text-white">
+            Leaderboard
+          </Link>
           <button onClick={() => scrollTo("features")} className="hover:text-white">
             Features
           </button>
@@ -40,7 +46,7 @@ export default function Navbar() {
             href="/login"
             className="rounded-md bg-emerald-500 px-3 py-1.5 text-black font-medium hover:bg-emerald-400 transition-colors"
           >
-            Get Started
+            Sign in
           </Link>
         </div>
 
@@ -57,6 +63,8 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden border-t border-neutral-800 bg-neutral-950">
           <div className="flex flex-col px-4 py-4 text-sm text-neutral-300 space-y-3">
+            <Link href="/problems" onClick={() => setOpen(false)}>Problems</Link>
+            <Link href="/leaderboard" onClick={() => setOpen(false)}>Leaderboard</Link>
             <button onClick={() => scrollTo("features")}>Features</button>
             <button onClick={() => scrollTo("how")}>How it Works</button>
             <button onClick={() => scrollTo("contact")}>Contact</button>
@@ -65,7 +73,7 @@ export default function Navbar() {
               className="rounded-md bg-emerald-500 py-2 text-black font-medium hover:bg-emerald-400 transition-colors text-center"
               onClick={() => setOpen(false)}
             >
-              Get Started
+              Sign in
             </Link>
           </div>
         </div>

@@ -1,1 +1,36 @@
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+:root {
+  --cv-bg: #0d1117;
+  --cv-surface: #161b22;
+  --cv-elevated: #21262d;
+  --cv-border: #30363d;
+  --cv-accent: #58a6ff;
+  --cv-accent-hover: #79b8ff;
+  --cv-success: #3fb950;
+  --cv-error: #f85149;
+  --cv-warning: #d29922;
+  --cv-text-primary: #e6edf3;
+  --cv-text-secondary: #c9d1d9;
+  --cv-text-muted: #8b949e;
+  --cv-diff-easy: #3fb950;
+  --cv-diff-medium: #d29922;
+  --cv-diff-hard: #f85149;
+}
+
+:root[data-theme="light"] {
+  --cv-bg: #ffffff;
+  --cv-surface: #f6f8fa;
+  --cv-elevated: #ffffff;
+  --cv-border: #d0d7de;
+  --cv-text-primary: #1f2328;
+  --cv-text-secondary: #424a53;
+  --cv-text-muted: #656d76;
+}
+
+html,
+body {
+  background: var(--cv-bg);
+  color: var(--cv-text-primary);
+}

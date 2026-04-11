@@ -6,13 +6,11 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Skip middleware for static files and callback
   if (pathname.match(/\.(js|css|png|jpg|ico|woff|svg|json|webp)$/i)) {
     return NextResponse.next();
   }
 
-  // If coming from callback, allow next
-  if (pathname.startsWith('/auth/callback')) {
+  if (pathname.startsWith("/auth/callback")) {
     return NextResponse.next();
   }
 
@@ -47,29 +45,35 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const protectedRoutes = ["/dashboard"];
+  const protectedRoutes = [
+    "/dashboard",
+    "/onboarding",
+    "/analytics",
+    "/settings",
+    "/tutor",
+    "/admin",
+  ];
   const authRoutes = ["/login", "/signup"];
 
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-  // Protect dashboard
   if (isProtected && !user) {
     const url = req.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users from login/signup - ignore welcome param
   if (user && isAuthRoute) {
-    // Always go to dashboard, ignore other query params
     const cleanRedirectUrl = req.nextUrl.clone();
-    cleanRedirectUrl.pathname = '/dashboard';
-    cleanRedirectUrl.search = '';
-    cleanRedirectUrl.hash = '';
+    cleanRedirectUrl.pathname = "/dashboard";
+    cleanRedirectUrl.search = "";
+    cleanRedirectUrl.hash = "";
     return NextResponse.redirect(cleanRedirectUrl);
   }
 
@@ -81,4 +85,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
-
