@@ -3,7 +3,7 @@ import { NextResponse } from "next/dist/server/web/spec-extension/response";
 import type { NextRequest } from "next/dist/server/web/spec-extension/request";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname.match(/\.(js|css|png|jpg|ico|woff|svg|json|webp)$/i)) {
