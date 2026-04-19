@@ -1,0 +1,11 @@
+CREATE INDEX IF NOT EXISTS idx_questions_topic_id ON public.questions (topic_id);
+CREATE INDEX IF NOT EXISTS idx_questions_slug ON public.questions (slug);
+CREATE INDEX IF NOT EXISTS idx_questions_published ON public.questions (is_published) WHERE is_published = true;
+CREATE INDEX IF NOT EXISTS idx_test_cases_question_id ON public.test_cases (question_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON public.submissions (user_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_question_id ON public.submissions (question_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_submitted_at ON public.submissions (submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON public.bookmarks (user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_activity_user_date ON public.daily_activity (user_id, date);
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON public.profiles (username);
+CREATE INDEX IF NOT EXISTS idx_leaderboard_rank ON public.leaderboard (rank);

@@ -1,24 +1,32 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { AppProviders } from "@/components/providers/AppProviders";
+import { ThemeRoot } from "@/components/theme/ThemeRoot";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
 export const metadata: Metadata = {
-  title: "CodeArena | Practice DSA Like LeetCode",
+  title: "CodeVerse | Practice. Learn. Grow — with AI by your side.",
   description:
-    "Practice Data Structures & Algorithms with real-time compiler, analytics, and 3D visualizations.",
+    "Competitive coding practice, AI tutoring, analytics, and a multi-language sandbox — built for learners from beginner to advanced.",
   keywords: [
     "DSA",
-    "LeetCode Clone",
-    "Coding Practice",
+    "LeetCode",
+    "CodeVerse",
     "Algorithms",
-    "Interview Preparation",
+    "Interview Prep",
+    "AI Tutor",
   ],
-  authors: [{ name: "CodeArena Team" }],
+  authors: [{ name: "CodeVerse" }],
   icons: {
     icon: "/favicon.ico",
   },
@@ -32,10 +40,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} font-sans bg-neutral-950 text-white antialiased`}
+        className={`${inter.variable} ${jetbrains.variable} font-sans antialiased`}
+        style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
       >
-        {/* ================= APP ROOT ================= */}
-        {children}
+        <ThemeRoot>
+          <AppProviders>{children}</AppProviders>
+        </ThemeRoot>
       </body>
     </html>
   );
