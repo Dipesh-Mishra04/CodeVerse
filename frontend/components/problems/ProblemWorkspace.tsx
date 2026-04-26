@@ -33,6 +33,13 @@ import { useEditorPrefs } from "@/stores/editor-prefs";
 import { getUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { CodingLanguage } from "@/types";
+import { supabase } from "@/lib/supabaseClient";
+
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+console.log(session?.access_token);
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -80,7 +87,7 @@ export function ProblemWorkspace({ slug }: { slug: string }) {
 
   useEffect(() => {
     setCode(lang.template_code);
-  }, [lang.id]);
+  }, [lang.id, lang.template_code]);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,10 +130,13 @@ export function ProblemWorkspace({ slug }: { slug: string }) {
         language_id: lang.id,
         custom_input: customIn,
       });
-      setOutput(
-        `${res.stdout || ""}${res.stderr ? `\n--- stderr ---\n${res.stderr}` : ""}\n--- ${res.execution_time_ms} ms`
-      );
-      toast.success("Run finished (stub executor)");
+      const sections = [
+        res.stdout ? res.stdout : "[no stdout]",
+        res.stderr ? `--- stderr ---\n${res.stderr}` : "",
+        `--- status: ${res.status} | ${res.execution_time_ms} ms`,
+      ].filter(Boolean);
+      setOutput(sections.join("\n"));
+      toast.success(res.status === "ok" ? "Run finished" : "Run completed with errors");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Run failed");
     } finally {
