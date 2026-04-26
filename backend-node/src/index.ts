@@ -1,4 +1,4 @@
-import { config } from "dotenv";
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -12,15 +12,16 @@ import { profileRouter } from "./routes/profile.js";
 import { executeRouter } from "./routes/execute.js";
 import { tutorRouter } from "./routes/tutor.js";
 
-config();
-
 const app = express();
 const port = Number(process.env.PORT) || 4001;
+const trustProxy = process.env.TRUST_PROXY?.trim();
 
 const origins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:3000")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+
+app.set("trust proxy", trustProxy ? Number(trustProxy) || trustProxy : 1);
 
 app.use(
   helmet({
