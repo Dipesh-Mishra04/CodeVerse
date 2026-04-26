@@ -33,13 +33,6 @@ import { useEditorPrefs } from "@/stores/editor-prefs";
 import { getUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { CodingLanguage } from "@/types";
-import { supabase } from "@/lib/supabaseClient";
-
-const {
-  data: { session },
-} = await supabase.auth.getSession();
-
-console.log(session?.access_token);
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -51,6 +44,70 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 type Tab = "description" | "submissions" | "editorial" | "discussion" | "tutor";
+
+function formatRunOutput(result: {
+  stdout: string;
+  stderr: string;
+  execution_time_ms: number;
+  status: string;
+  status_description: string;
+  compile_output?: string;
+  message?: string;
+}) {
+  const sections = [`Status: ${result.status_description}`];
+
+  if (result.compile_output?.trim()) {
+    sections.push(`Compiler output:\n${result.compile_output.trim()}`);
+  }
+
+  if (result.stderr.trim()) {
+    sections.push(`stderr:\n${result.stderr.trim()}`);
+  }
+
+  if (result.message?.trim()) {
+    sections.push(`Message:\n${result.message.trim()}`);
+  }
+
+  if (result.stdout.trim()) {
+    sections.push(`stdout:\n${result.stdout.trimEnd()}`);
+  } else if (
+    !result.compile_output?.trim() &&
+    !result.stderr.trim() &&
+    !result.message?.trim()
+  ) {
+    sections.push("stdout:\n[no stdout]");
+  }
+
+  sections.push(`Time: ${result.execution_time_ms} ms`);
+  return sections.join("\n\n");
+}
+
+function formatSubmissionOutput(result: {
+  verdict?: string;
+  passed?: number;
+  total?: number;
+  failed_test_case?: number | null;
+  message?: string | null;
+}) {
+  const verdictLabel = (result.verdict ?? "unknown")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+  const sections = [`Verdict: ${verdictLabel}`];
+
+  if (typeof result.passed === "number" && typeof result.total === "number") {
+    sections.push(`Tests passed: ${result.passed}/${result.total}`);
+  }
+
+  if (result.failed_test_case) {
+    sections.push(`Failed on test case: ${result.failed_test_case}`);
+  }
+
+  if (result.message?.trim()) {
+    sections.push(result.message.trim());
+  }
+
+  return sections.join("\n\n");
+}
 
 export function ProblemWorkspace({ slug }: { slug: string }) {
   const q = useQuery({ queryKey: ["question", slug], queryFn: () => getQuestion(slug) });
@@ -130,12 +187,7 @@ export function ProblemWorkspace({ slug }: { slug: string }) {
         language_id: lang.id,
         custom_input: customIn,
       });
-      const sections = [
-        res.stdout ? res.stdout : "[no stdout]",
-        res.stderr ? `--- stderr ---\n${res.stderr}` : "",
-        `--- status: ${res.status} | ${res.execution_time_ms} ms`,
-      ].filter(Boolean);
-      setOutput(sections.join("\n"));
+      setOutput(formatRunOutput(res));
       toast.success(res.status === "ok" ? "Run finished" : "Run completed with errors");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Run failed");
@@ -148,30 +200,46 @@ export function ProblemWorkspace({ slug }: { slug: string }) {
     if (!q.data) return;
     setSubmitting(true);
     setOutput(null);
+    toast.loading("Judging…", { id: "sub" });
     try {
-      const { job_id } = await postSubmit({
+      const submission = await postSubmit({
         code,
         language_id: lang.id,
         question_id: q.data.id,
       });
-      toast.loading("Judging…", { id: "sub" });
-      for (let i = 0; i < 8; i++) {
-        await new Promise((r) => setTimeout(r, 400));
-        const st = await getExecuteStatus(job_id);
-        if (st.status === "completed") {
-          setOutput(
-            `Verdict: ${st.passed}/${st.total} tests passed (stub judge).\nJob: ${job_id}`
-          );
-          toast.success("Submission judged (stub)", { id: "sub" });
-          break;
+
+      let finalStatus = submission;
+      if (submission.status !== "completed") {
+        for (let i = 0; i < 30; i += 1) {
+          await new Promise((r) => setTimeout(r, 500));
+          const st = await getExecuteStatus(submission.job_id);
+          if (st.status === "completed") {
+            finalStatus = st;
+            break;
+          }
         }
       }
+
+      if (finalStatus.status !== "completed") {
+        throw new Error("Judging timed out before a final verdict was returned.");
+      }
+
+      setOutput(formatSubmissionOutput(finalStatus));
+      if (finalStatus.verdict === "accepted") {
+        await q.refetch();
+      }
+      toast.success(
+        finalStatus.verdict === "accepted"
+          ? "Accepted"
+          : "Submission evaluated",
+        { id: "sub" }
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Submit failed", { id: "sub" });
     } finally {
       setSubmitting(false);
     }
-  }, [code, lang.id, q.data]);
+  }, [code, lang.id, q]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
