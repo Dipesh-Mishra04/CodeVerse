@@ -26,6 +26,26 @@ type RunResult = {
   stderr: string;
   execution_time_ms: number;
   status: "ok" | "error";
+  status_description: string;
+  compile_output?: string;
+  message?: string;
+};
+
+type SubmissionVerdict =
+  | "pending"
+  | "running"
+  | "accepted"
+  | "wrong_answer"
+  | "compilation_error"
+  | "runtime_error";
+
+type SubmissionStatusResponse = {
+  status: "running" | "completed";
+  verdict?: SubmissionVerdict;
+  passed?: number;
+  total?: number;
+  failed_test_case?: number | null;
+  message?: string | null;
 };
 
 const DEFAULT_PROVIDER: ExecutionProvider = "piston";
@@ -178,6 +198,9 @@ async function runViaPiston(language: ResolvedLanguage, code: string, stdin: str
     stderr,
     execution_time_ms: 0,
     status: isError ? "error" : "ok",
+    status_description: isError ? "Execution Error" : "Accepted",
+    compile_output: compileStderr || undefined,
+    message: payload.run?.signal || undefined,
   };
 }
 
@@ -222,22 +245,221 @@ async function runViaJudge0(language: ResolvedLanguage, code: string, stdin: str
     time?: string | number | null;
     status?: { id?: number; description?: string };
   };
-  const stderr = [
-    payload.stderr,
-    payload.compile_output,
-    payload.message,
-  ]
-    .filter(Boolean)
-    .join("\n");
   const executionTimeMs =
     payload.time == null ? 0 : Math.round(Number(payload.time) * 1000);
   const statusId = payload.status?.id ?? 0;
 
   return {
     stdout: payload.stdout ?? "",
-    stderr,
+    stderr: payload.stderr ?? "",
     execution_time_ms: Number.isFinite(executionTimeMs) ? executionTimeMs : 0,
     status: statusId === 3 ? "ok" : "error",
+    status_description: payload.status?.description ?? (statusId === 3 ? "Accepted" : "Error"),
+    compile_output: payload.compile_output ?? undefined,
+    message: payload.message ?? undefined,
+  };
+}
+
+async function executeCode(
+  language: ResolvedLanguage,
+  code: string,
+  stdin: string
+): Promise<RunResult> {
+  const provider = getExecutionProvider();
+  return provider === "judge0"
+    ? runViaJudge0(language, code, stdin)
+    : runViaPiston(language, code, stdin);
+}
+
+function normalizeOutput(value: string): string {
+  return value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .trim();
+}
+
+async function updateSubmissionStatus(
+  submissionId: string,
+  payload: {
+    status: SubmissionVerdict;
+    total_test_cases?: number;
+    passed_test_cases?: number;
+    score?: number;
+  }
+) {
+  const { error } = await supabaseAdmin
+    .from("submissions")
+    .update(payload)
+    .eq("id", submissionId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function judgeSubmission(args: {
+  submissionId: string;
+  userId: string;
+  questionId: string;
+  languageId: string;
+  code: string;
+}): Promise<SubmissionStatusResponse> {
+  const language = await resolveLanguage(args.languageId);
+  if (!language) {
+    throw new Error("Unknown language_id");
+  }
+
+  const { data: testCases, error: testCaseError } = await supabaseAdmin
+    .from("test_cases")
+    .select("id, input, expected_output, display_order")
+    .eq("question_id", args.questionId)
+    .order("display_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (testCaseError) {
+    throw new Error(testCaseError.message);
+  }
+
+  if (!testCases?.length) {
+    throw new Error("No test cases configured for this problem");
+  }
+
+  await updateSubmissionStatus(args.submissionId, {
+    status: "running",
+    total_test_cases: testCases.length,
+    passed_test_cases: 0,
+    score: 0,
+  });
+
+  const resultRows: {
+    submission_id: string;
+    test_case_id: string;
+    actual_output: string;
+    is_passed: boolean;
+    execution_time_ms: number;
+    memory_used_kb: number | null;
+    error_message: string | null;
+  }[] = [];
+
+  let passed = 0;
+  let verdict: SubmissionVerdict = "accepted";
+  let failedTestCase: number | null = null;
+  let message: string | null = null;
+
+  for (let index = 0; index < testCases.length; index += 1) {
+    const testCase = testCases[index];
+    const run = await executeCode(language, args.code, String(testCase.input ?? ""));
+    const actualOutput = run.stdout ?? "";
+    const expectedOutput = String(testCase.expected_output ?? "");
+    const outputsMatch =
+      normalizeOutput(actualOutput) === normalizeOutput(expectedOutput);
+    const isAcceptedRun = run.status === "ok";
+    const isPassed = isAcceptedRun && outputsMatch;
+
+    if (!isAcceptedRun && verdict === "accepted") {
+      const compileFailed = Boolean(run.compile_output?.trim());
+      verdict = compileFailed ? "compilation_error" : "runtime_error";
+      failedTestCase = index + 1;
+      message = run.compile_output?.trim() || run.stderr.trim() || run.message?.trim() || null;
+    } else if (!outputsMatch && verdict === "accepted") {
+      verdict = "wrong_answer";
+      failedTestCase = index + 1;
+      message = `Expected ${JSON.stringify(expectedOutput)} but got ${JSON.stringify(actualOutput)}`;
+    }
+
+    if (isPassed) {
+      passed += 1;
+    }
+
+    resultRows.push({
+      submission_id: args.submissionId,
+      test_case_id: String(testCase.id),
+      actual_output: actualOutput,
+      is_passed: isPassed,
+      execution_time_ms: run.execution_time_ms,
+      memory_used_kb: null,
+      error_message:
+        isPassed
+          ? null
+          : run.compile_output?.trim() ||
+            run.stderr.trim() ||
+            run.message?.trim() ||
+            (!outputsMatch ? "Wrong answer" : null),
+    });
+
+    if (!isPassed) {
+      break;
+    }
+  }
+
+  const { error: insertResultsError } = await supabaseAdmin
+    .from("submission_results")
+    .insert(resultRows);
+
+  if (insertResultsError) {
+    throw new Error(insertResultsError.message);
+  }
+
+  const total = testCases.length;
+  const score = total > 0 ? Math.round((passed / total) * 10000) / 100 : 0;
+
+  await updateSubmissionStatus(args.submissionId, {
+    status: verdict,
+    total_test_cases: total,
+    passed_test_cases: passed,
+    score,
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const solvedIncrement = verdict === "accepted" ? 1 : 0;
+
+  const { data: activityRow, error: activitySelectError } = await supabaseAdmin
+    .from("daily_activity")
+    .select("id, submissions_made, questions_solved")
+    .eq("user_id", args.userId)
+    .eq("date", today)
+    .maybeSingle();
+
+  if (activitySelectError) {
+    throw new Error(activitySelectError.message);
+  }
+
+  if (activityRow?.id) {
+    const { error: activityUpdateError } = await supabaseAdmin
+      .from("daily_activity")
+      .update({
+        submissions_made: Number(activityRow.submissions_made ?? 0) + 1,
+        questions_solved: Number(activityRow.questions_solved ?? 0) + solvedIncrement,
+      })
+      .eq("id", activityRow.id as string);
+
+    if (activityUpdateError) {
+      throw new Error(activityUpdateError.message);
+    }
+  } else {
+    const { error: activityInsertError } = await supabaseAdmin
+      .from("daily_activity")
+      .insert({
+        user_id: args.userId,
+        date: today,
+        submissions_made: 1,
+        questions_solved: solvedIncrement,
+      });
+
+    if (activityInsertError) {
+      throw new Error(activityInsertError.message);
+    }
+  }
+
+  return {
+    status: "completed",
+    verdict,
+    passed,
+    total,
+    failed_test_case: failedTestCase,
+    message,
   };
 }
 
@@ -254,12 +476,11 @@ executeRouter.post("/run", requireAuth, async (req: AuthedRequest, res) => {
       return;
     }
 
-    const provider = getExecutionProvider();
-    const result =
-      provider === "judge0"
-        ? await runViaJudge0(language, parsed.data.code, parsed.data.custom_input)
-        : await runViaPiston(language, parsed.data.code, parsed.data.custom_input);
-
+    const result = await executeCode(
+      language,
+      parsed.data.code,
+      parsed.data.custom_input
+    );
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Code execution failed";
@@ -298,7 +519,28 @@ executeRouter.post("/submit", requireAuth, async (req: AuthedRequest, res) => {
     return;
   }
 
-  res.json({ job_id: sub.id as string });
+  try {
+    const result = await judgeSubmission({
+      submissionId: sub.id as string,
+      userId: req.user!.id,
+      questionId: question_id,
+      languageId: language_id,
+      code,
+    });
+
+    res.json({ job_id: sub.id as string, ...result });
+  } catch (judgeError) {
+    const message =
+      judgeError instanceof Error ? judgeError.message : "Judging failed";
+
+    await updateSubmissionStatus(sub.id as string, {
+      status: "runtime_error",
+      passed_test_cases: 0,
+      score: 0,
+    }).catch(() => undefined);
+
+    res.status(502).json({ error: message });
+  }
 });
 
 executeRouter.get("/status/:jobId", requireAuth, async (req: AuthedRequest, res) => {
@@ -319,7 +561,11 @@ executeRouter.get("/status/:jobId", requireAuth, async (req: AuthedRequest, res)
   }
 
   res.json({
-    status: sub.status === "pending" ? "running" : "completed",
+    status:
+      sub.status === "pending" || sub.status === "running"
+        ? "running"
+        : "completed",
+    verdict: sub.status as SubmissionVerdict,
     passed: sub.passed_test_cases,
     total: sub.total_test_cases,
   });
