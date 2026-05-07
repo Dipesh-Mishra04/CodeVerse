@@ -221,6 +221,9 @@ export async function postRun(body: {
   stderr: string;
   execution_time_ms: number;
   status: string;
+  status_description: string;
+  compile_output?: string;
+  message?: string;
 }> {
   const res = await apiFetch(`/api/execute/run`, {
     method: "POST",
@@ -234,7 +237,21 @@ export async function postSubmit(body: {
   code: string;
   language_id: string;
   question_id: string;
-}): Promise<{ job_id: string }> {
+}): Promise<{
+  job_id: string;
+  status?: "running" | "completed";
+  verdict?:
+    | "pending"
+    | "running"
+    | "accepted"
+    | "wrong_answer"
+    | "compilation_error"
+    | "runtime_error";
+  passed?: number;
+  total?: number;
+  failed_test_case?: number | null;
+  message?: string | null;
+}> {
   const res = await apiFetch(`/api/execute/submit`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -245,6 +262,13 @@ export async function postSubmit(body: {
 
 export async function getExecuteStatus(jobId: string): Promise<{
   status: string;
+  verdict?:
+    | "pending"
+    | "running"
+    | "accepted"
+    | "wrong_answer"
+    | "compilation_error"
+    | "runtime_error";
   passed?: number;
   total?: number;
 }> {

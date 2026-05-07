@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUser, getUserName, signOut } from "@/lib/auth";
+import { getUser, getUserName } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { AppShell } from "@/components/layout/AppShell";
@@ -42,11 +42,6 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push("/login");
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--cv-bg)] text-[var(--cv-text-muted)]">
@@ -69,25 +64,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      <div className="mb-6 flex justify-end">
-        <div className="flex items-center gap-3 rounded-full border border-[var(--cv-border)] bg-[var(--cv-surface)] px-4 py-2 text-sm text-[var(--cv-text-secondary)]">
-          <span>
-            Signed in as{" "}
-            <span className="font-semibold text-[var(--cv-text-primary)]">
-              {username}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-[var(--cv-text-primary)] hover:bg-white/10"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-
       <DashboardHome displayName={username} />
     </AppShell>
   );
